@@ -221,15 +221,18 @@ def main():
     else:
         print("⚠️  No alert emails configured")
     
-    # Output alert data as JSON for GitHub Actions
-    alerts_json = json.dumps([{
-        "domain": alert["domain"],
-        "status": alert["status"],
-        "days_remaining": alert["days_remaining"],
-        "expires_at": alert["expires_at"].isoformat() if alert["expires_at"] else None,
-        "error": alert["error"]
-    } for alert in alerts])
-    print(f"\n::set-output name=alerts::{alerts_json}")
+    # Output alert data as JSON for GitHub Actions (if running in GHA)
+    if os.getenv("GITHUB_OUTPUT"):
+        if alerts:
+            alerts_json = json.dumps([{
+                "domain": alert["domain"],
+                "status": alert["status"],
+                "days_remaining": alert["days_remaining"],
+                "expires_at": alert["expires_at"].isoformat() if alert["expires_at"] else None,
+                "error": alert["error"]
+            } for alert in alerts])
+            with open(os.getenv("GITHUB_OUTPUT"), "a") as f:
+                f.write(f"alerts={alerts_json}\n")
     
     print("="*60)
     return 1 if alerts else 0
