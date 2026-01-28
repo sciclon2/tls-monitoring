@@ -11,6 +11,7 @@ import socket
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
+import json
 
 # ============================================================================
 # CONFIG
@@ -219,6 +220,16 @@ def main():
         send_email_via_github(emails, alert_data)
     else:
         print("⚠️  No alert emails configured")
+    
+    # Output alert data as JSON for GitHub Actions
+    alerts_json = json.dumps([{
+        "domain": alert["domain"],
+        "status": alert["status"],
+        "days_remaining": alert["days_remaining"],
+        "expires_at": alert["expires_at"].isoformat() if alert["expires_at"] else None,
+        "error": alert["error"]
+    } for alert in alerts])
+    print(f"\n::set-output name=alerts::{alerts_json}")
     
     print("="*60)
     return 1 if alerts else 0

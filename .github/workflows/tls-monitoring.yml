@@ -31,18 +31,54 @@ jobs:
       
       - name: Run TLS monitoring script
         id: monitor
-        run: python main.py
+        run: python main.py > /tmp/monitor_output.txt 2>&1 || true
         continue-on-error: true
       
-      - name: Create GitHub Issue on certificate alert
+      - name: Parse alerts and create issues
         if: steps.monitor.outcome == 'failure'
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '⚠️ TLS Certificate Expiration Alert',
-              body: `## Certificate Expiration Alert\n\nThe TLS monitoring job detected certificate(s) below the expiration threshold.\n\n**Details:**\n- Repository: ${context.repo.repo}\n- Triggered: ${new Date().toISOString()}\n- Action: [View Logs](${context.server_url}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n\nCheck the workflow logs above for certificate details and take action to renew the certificate(s).`,
-              labels: ['security', 'certificate-alert']
-            })
+            const fs = require('fs');
+            
+            // Read workflow output
+            const output = fs.readFileSync('/tmp/monitor_output.txt', 'utf8');
+            
+            // Extract JSON alerts from output (look for ::set-output line)
+            const alertsMatch = output.match(/::set-output name=alerts::(.*)/);
+            if (!alertsMatch) {
+              console.log('No alerts found in output');
+              return;
+            }
+            
+            const alerts = JSON.parse(alertsMatch[1]);
+            console.log(`Found ${alerts.length} alert(s) to process`);
+            
+            // Create an issue for each failing domain
+            for (const alert of alerts) {
+              let body = `## Certificate Alert for ${alert.domain}\n\n`;
+              body += `**Status:** ${alert.status}\n\n`;
+              
+              if (alert.status === 'ERROR') {
+                body += `**Error:** ${alert.error}\n\n`;
+              } else {
+                body += `**Expiration Date:** ${alert.expires_at ? new Date(alert.expires_at).toLocaleDateString() : 'Unknown'}\n`;
+                body += `**Days Remaining:** ${alert.days_remaining}\n`;
+                body += `**Threshold:** 50 days\n\n`;
+              }
+              
+              body += `**Details:**\n`;
+              body += `- Repository: [${context.repo.repo}](${context.server_url}/${context.repo.owner}/${context.repo.repo})\n`;
+              body += `- Triggered: ${new Date().toISOString()}\n`;
+              body += `- Workflow: [View Logs](${context.server_url}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n\n`;
+              body += `Take action to renew or fix the certificate.`;
+              
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `⚠️ Certificate Alert: ${alert.domain}`,
+                body: body,
+                labels: ['security', 'certificate-alert']
+              });
+              console.log(`Created issue for ${alert.domain}`);
+            }
