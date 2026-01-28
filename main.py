@@ -8,6 +8,7 @@ No New Relic required!
 import os
 import ssl
 import socket
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
@@ -74,6 +75,8 @@ def get_certificate_expiry(domain, port=443, timeout=10):
                 
                 # Parse expiry date
                 expires_str = cert.get("notAfter")
+                if not expires_str:
+                    raise ValueError("Certificate missing notAfter field")
                 # Format: 'Jun 15 12:34:56 2025 GMT'
                 expires_at = datetime.strptime(expires_str, "%b %d %H:%M:%S %Y %Z")
                 
@@ -106,27 +109,69 @@ def get_certificate_expiry(domain, port=443, timeout=10):
                 
                 with socket.create_connection((domain, port), timeout=timeout) as sock:
                     with context.wrap_socket(sock, server_hostname=domain) as ssock:
-                        cert = ssock.getpeercert()
+                        # When verification is disabled, getpeercert() returns empty dict
+                        # So we need to get the DER cert and use openssl to parse it
+                        cert_der = ssock.getpeercert(True)
                         
-                        expires_str = cert.get("notAfter")
-                        expires_at = datetime.strptime(expires_str, "%b %d %H:%M:%S %Y %Z")
+                        if not cert_der:
+                            return {
+                                "domain": domain,
+                                "expires_at": None,
+                                "days_remaining": None,
+                                "status": "ERROR",
+                                "error": "Could not retrieve certificate",
+                            }
                         
-                        days_remaining = (expires_at - datetime.now()).days
+                        # Convert DER to PEM and use openssl to extract enddate
+                        pem_cert = ssl.DER_cert_to_PEM_cert(cert_der)
                         
-                        if days_remaining < 0:
-                            status = "EXPIRED"
-                        elif days_remaining < 7:
-                            status = "CRITICAL"
-                        else:
-                            status = "OK"
-                        
-                        return {
-                            "domain": domain,
-                            "expires_at": expires_at,
-                            "days_remaining": days_remaining,
-                            "status": status,
-                            "error": None,
-                        }
+                        try:
+                            result = subprocess.run(
+                                ['openssl', 'x509', '-noout', '-enddate'],
+                                input=pem_cert,
+                                capture_output=True,
+                                text=True,
+                                timeout=5
+                            )
+                            
+                            if result.returncode == 0:
+                                # Output is like: "notAfter=Oct  9 23:59:59 2026 GMT"
+                                enddate_str = result.stdout.strip().split('=')[1]
+                                # Note: openssl uses double space for single-digit day
+                                expires_at = datetime.strptime(enddate_str, "%b  %d %H:%M:%S %Y %Z")
+                                
+                                days_remaining = (expires_at - datetime.now()).days
+                                
+                                if days_remaining < 0:
+                                    status = "EXPIRED"
+                                elif days_remaining < 7:
+                                    status = "CRITICAL"
+                                else:
+                                    status = "OK"
+                                
+                                return {
+                                    "domain": domain,
+                                    "expires_at": expires_at,
+                                    "days_remaining": days_remaining,
+                                    "status": status,
+                                    "error": None,
+                                }
+                            else:
+                                return {
+                                    "domain": domain,
+                                    "expires_at": None,
+                                    "days_remaining": None,
+                                    "status": "ERROR",
+                                    "error": f"OpenSSL parsing failed: {result.stderr}",
+                                }
+                        except Exception as openssl_e:
+                            return {
+                                "domain": domain,
+                                "expires_at": None,
+                                "days_remaining": None,
+                                "status": "ERROR",
+                                "error": f"Certificate parsing error: {str(openssl_e)}",
+                            }
             except Exception as fallback_e:
                 return {
                     "domain": domain,
