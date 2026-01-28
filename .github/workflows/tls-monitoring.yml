@@ -31,18 +31,29 @@ jobs:
       
       - name: Run TLS monitoring script
         id: monitor
-        run: python main.py > /tmp/monitor_output.txt 2>&1 || true
+        run: python main.py > /tmp/monitor_output.txt 2>&1; echo $? > /tmp/monitor_exit_code.txt
         continue-on-error: true
       
       - name: Parse alerts and create issues
-        if: steps.monitor.outcome == 'failure'
+        if: always()
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
             
+            // Read exit code
+            const exitCode = parseInt(fs.readFileSync('/tmp/monitor_exit_code.txt', 'utf8').trim());
+            console.log(`Script exit code: ${exitCode}`);
+            
+            // Only proceed if script failed (exit code 1)
+            if (exitCode !== 1) {
+              console.log('No alerts detected, skipping issue creation');
+              return;
+            }
+            
             // Read workflow output
             const output = fs.readFileSync('/tmp/monitor_output.txt', 'utf8');
+            console.log('Script output:', output);
             
             // Extract JSON alerts from output (look for ::set-output line)
             const alertsMatch = output.match(/::set-output name=alerts::(.*)/);
