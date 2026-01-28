@@ -20,10 +20,15 @@ import certifi
 # ============================================================================
 
 def load_config():
-    """Load configuration from .env file"""
+    """Load configuration from environment variables or .env file
+    
+    Priority:
+    1. Environment variables (set via GitHub Actions secrets or manually)
+    2. .env file (for local development)
+    """
     script_dir = Path(__file__).parent
     env_file = script_dir / ".env"
-    load_dotenv(dotenv_path=str(env_file), override=True)
+    load_dotenv(dotenv_path=str(env_file), override=False)
     
     return {
         "domains_str": os.getenv("MONITOR_DOMAINS", ""),
