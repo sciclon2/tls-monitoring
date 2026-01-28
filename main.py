@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
 import json
+import certifi
 
 # ============================================================================
 # CONFIG
@@ -65,13 +66,8 @@ def get_certificate_expiry(domain, port=443, timeout=10):
     """
     try:
         context = ssl.create_default_context()
-        # Load system CA certificates - handles missing intermediate CAs on CI runners
-        # Try Linux path first (for GitHub Actions Ubuntu runner)
-        try:
-            context.load_verify_locations('/etc/ssl/certs/ca-certificates.crt')
-        except FileNotFoundError:
-            # On macOS and other systems, use the default context which auto-loads system certs
-            pass
+        # Use certifi's comprehensive certificate bundle for better compatibility
+        context.load_verify_locations(certifi.where())
         with socket.create_connection((domain, port), timeout=timeout) as sock:
             with context.wrap_socket(sock, server_hostname=domain) as ssock:
                 cert = ssock.getpeercert()
