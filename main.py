@@ -95,6 +95,55 @@ def get_certificate_expiry(domain, port=443, timeout=10):
                     "error": None,
                 }
     
+    except ssl.SSLError as e:
+        # If certificate chain verification fails, try without hostname verification
+        # This handles cases where servers don't send intermediate certificates
+        if "CERTIFICATE_VERIFY_FAILED" in str(e):
+            try:
+                context = ssl.create_default_context()
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+                
+                with socket.create_connection((domain, port), timeout=timeout) as sock:
+                    with context.wrap_socket(sock, server_hostname=domain) as ssock:
+                        cert = ssock.getpeercert()
+                        
+                        expires_str = cert.get("notAfter")
+                        expires_at = datetime.strptime(expires_str, "%b %d %H:%M:%S %Y %Z")
+                        
+                        days_remaining = (expires_at - datetime.now()).days
+                        
+                        if days_remaining < 0:
+                            status = "EXPIRED"
+                        elif days_remaining < 7:
+                            status = "CRITICAL"
+                        else:
+                            status = "OK"
+                        
+                        return {
+                            "domain": domain,
+                            "expires_at": expires_at,
+                            "days_remaining": days_remaining,
+                            "status": status,
+                            "error": None,
+                        }
+            except Exception as fallback_e:
+                return {
+                    "domain": domain,
+                    "expires_at": None,
+                    "days_remaining": None,
+                    "status": "ERROR",
+                    "error": str(fallback_e),
+                }
+        else:
+            return {
+                "domain": domain,
+                "expires_at": None,
+                "days_remaining": None,
+                "status": "ERROR",
+                "error": str(e),
+            }
+    
     except Exception as e:
         return {
             "domain": domain,
