@@ -31,7 +31,11 @@ jobs:
       
       - name: Run TLS monitoring script
         id: monitor
-        run: python main.py > /tmp/monitor_output.txt 2>&1; echo $? > /tmp/monitor_exit_code.txt
+        run: |
+          python main.py > /tmp/monitor_output.txt 2>&1
+          EXIT_CODE=$?
+          echo "exit_code=${EXIT_CODE}" >> $GITHUB_OUTPUT
+          exit 0
         continue-on-error: true
       
       - name: Parse alerts and create issues
@@ -41,8 +45,8 @@ jobs:
           script: |
             const fs = require('fs');
             
-            // Read exit code
-            const exitCode = parseInt(fs.readFileSync('/tmp/monitor_exit_code.txt', 'utf8').trim());
+            // Get exit code from step output
+            const exitCode = parseInt('${{ steps.monitor.outputs.exit_code }}' || '0');
             console.log(`Script exit code: ${exitCode}`);
             
             // Only proceed if script failed (exit code 1)
@@ -52,13 +56,26 @@ jobs:
             }
             
             // Read workflow output
-            const output = fs.readFileSync('/tmp/monitor_output.txt', 'utf8');
+            let output = '';
+            try {
+              output = fs.readFileSync('/tmp/monitor_output.txt', 'utf8');
+            } catch (err) {
+              console.log('Could not read output file, creating generic issue');
+            }
+            
             console.log('Script output:', output);
             
             // Extract JSON alerts from output (look for ::set-output line)
             const alertsMatch = output.match(/::set-output name=alerts::(.*)/);
             if (!alertsMatch) {
-              console.log('No alerts found in output');
+              console.log('No alerts found in output, creating generic issue');
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '⚠️ Certificate Monitoring Alert',
+                body: `## TLS Certificate Alert\n\nThe certificate monitoring detected issues.\n\n**Details:**\n- Repository: [${context.repo.repo}](${context.server_url}/${context.repo.owner}/${context.repo.repo})\n- Triggered: ${new Date().toISOString()}\n- Workflow: [View Logs](${context.server_url}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n\nCheck the logs for details.`,
+                labels: ['security', 'certificate-alert']
+              });
               return;
             }
             
