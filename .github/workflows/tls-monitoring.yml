@@ -8,6 +8,9 @@ on:
   # Allow manual trigger
   workflow_dispatch:
 
+permissions:
+  issues: write
+
 jobs:
   monitor-certificates:
     runs-on: ubuntu-latest
