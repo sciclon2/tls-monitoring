@@ -118,10 +118,7 @@ MIT
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `MONITOR_DOMAINS` | (required) | Domains to monitor (comma-separated) |
-| `CERT_EXPIRATION_THRESHOLD_DAYS` | 30 | Days before expiration to alert |
-| `ALERT_EMAILS` | (empty) | Email addresses shown in alerts |
 | `DEBUG` | false | Enable debug output |
-
 ## License
 
 MIT
