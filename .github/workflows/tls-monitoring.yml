@@ -38,11 +38,7 @@ jobs:
       
       - name: Run TLS monitoring script
         id: monitor
-        env:
-          MONITOR_DOMAINS: ${{ secrets.MONITOR_DOMAINS }}
-          CERT_EXPIRATION_THRESHOLD_DAYS: ${{ secrets.CERT_EXPIRATION_THRESHOLD_DAYS || '30' }}
-          ALERT_EMAILS: ${{ secrets.ALERT_EMAILS }}
-        run: python main.py
+        run: python main.py --domains "${{ secrets.MONITOR_DOMAINS }}" --threshold "${{ secrets.CERT_EXPIRATION_THRESHOLD_DAYS || '30' }}"
         continue-on-error: true
       
       - name: Extract alerts and create issues

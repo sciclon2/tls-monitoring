@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 TLS Certificate Monitoring via GitHub Actions
-Checks certificate expiration dates and sends alerts via email/Slack/Discord
+Checks certificate expiration dates and sends alerts via GitHub Issues
 No New Relic required!
 """
 
@@ -9,6 +9,7 @@ import os
 import ssl
 import socket
 import subprocess
+import argparse
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
@@ -19,22 +20,27 @@ import certifi
 # CONFIG
 # ============================================================================
 
-def load_config():
-    """Load configuration from environment variables or .env file
+def load_config(domains=None, threshold=None):
+    """Load configuration from command-line args, environment variables, or .env file
     
     Priority:
-    1. Environment variables (set via GitHub Actions secrets or manually)
-    2. .env file (for local development)
+    1. Command-line arguments (highest priority)
+    2. Environment variables (set via GitHub Actions secrets)
+    3. .env file (for local development)
     """
     script_dir = Path(__file__).parent
     env_file = script_dir / ".env"
     load_dotenv(dotenv_path=str(env_file), override=False)
     
+    # Use command-line args if provided, otherwise fall back to env vars
+    domains_str = domains or os.getenv("MONITOR_DOMAINS", "")
+    threshold_days = threshold or int(os.getenv("CERT_EXPIRATION_THRESHOLD_DAYS", "30"))
+    debug = os.getenv("DEBUG", "false").lower() == "true"
+    
     return {
-        "domains_str": os.getenv("MONITOR_DOMAINS", ""),
-        "threshold_days": int(os.getenv("CERT_EXPIRATION_THRESHOLD_DAYS", "30")),
-        "alert_emails_str": os.getenv("ALERT_EMAILS", "").strip(),
-        "debug": os.getenv("DEBUG", "false").lower() == "true",
+        "domains_str": domains_str,
+        "threshold_days": threshold_days,
+        "debug": debug,
     }
 
 
@@ -47,11 +53,6 @@ def validate_config(config):
 def parse_domains(domains_str):
     """Parse domain list"""
     return [d.strip() for d in domains_str.split(",") if d.strip()]
-
-
-def parse_emails(emails_str):
-    """Parse comma-separated email list"""
-    return [e.strip() for e in emails_str.split(",") if e.strip()] if emails_str else []
 
 
 # ============================================================================
@@ -225,18 +226,11 @@ def check_threshold(cert_info, threshold_days):
 # ALERTING
 # ============================================================================
 
-def send_email_via_github(emails, alert_data):
-    """Log email alert to console"""
-    if not emails:
-        return
-    
+def print_alert_summary(alert_data):
+    """Print alert summary to console"""
     print("\n" + "="*60)
-    print("📧 EMAIL ALERT")
+    print("🚨 CERTIFICATE ALERTS SUMMARY")
     print("="*60)
-    print(f"To: {', '.join(emails)}")
-    print("\nSubject: 🚨 TLS Certificate Expiration Alert")
-    print("\nBody:")
-    print("-" * 60)
     
     for domain_info in alert_data["alerts"]:
         domain = domain_info["domain"]
@@ -255,6 +249,7 @@ def send_email_via_github(emails, alert_data):
     
     print("\n" + "-" * 60)
     print("Threshold: {} days".format(alert_data["threshold_days"]))
+    print("GitHub will notify watchers via GitHub Issues")
     print("="*60 + "\n")
 
 
@@ -264,17 +259,30 @@ def send_email_via_github(emails, alert_data):
 
 def main():
     """Main execution"""
+    parser = argparse.ArgumentParser(
+        description="Monitor TLS certificate expiration dates"
+    )
+    parser.add_argument(
+        "-d", "--domains",
+        help="Comma-separated list of domains to check (overrides env vars and .env)"
+    )
+    parser.add_argument(
+        "-t", "--threshold",
+        type=int,
+        help="Days before expiration to trigger alert (default: 30)"
+    )
+    args = parser.parse_args()
+    
     print("="*60)
     print("TLS Certificate Monitoring")
     print("="*60)
     print()
     
-    # Load configuration
-    config = load_config()
+    # Load configuration with command-line overrides
+    config = load_config(domains=args.domains, threshold=args.threshold)
     validate_config(config)
     
     domains = parse_domains(config["domains_str"])
-    emails = parse_emails(config["alert_emails_str"])
     threshold_days = config["threshold_days"]
     
     print(f"Checking {len(domains)} domain(s)")
@@ -317,11 +325,8 @@ def main():
         "checked_at": datetime.now().isoformat(),
     }
     
-    # Send via email
-    if emails:
-        send_email_via_github(emails, alert_data)
-    else:
-        print("⚠️  No alert emails configured")
+    # Print alert summary
+    print_alert_summary(alert_data)
     
     # Output alert data as JSON for GitHub Actions (if running in GHA)
     if os.getenv("GITHUB_OUTPUT"):

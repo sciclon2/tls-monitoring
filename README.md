@@ -13,42 +13,66 @@ Automated TLS/SSL certificate expiration monitoring via GitHub Actions. Checks c
 
 ## Quick Start
 
-### 1. Local Setup (Optional)
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 2. Create GitHub Secrets
+### 1. Create GitHub Secrets
 
 Go to your repository **Settings → Secrets and variables → Actions** and add:
 
 | Secret | Value | Required |
 |--------|-------|----------|
 | `MONITOR_DOMAINS` | Comma-separated domains (e.g., `example.com,test.com`) | ✅ Yes |
-| `ALERT_EMAILS` | Email addresses for alerts | ❌ Optional |
 | `CERT_EXPIRATION_THRESHOLD_DAYS` | Days before expiration to alert (default: 30) | ❌ Optional |
-| `PAT_TOKEN` | GitHub Personal Access Token (for private repos) | ✅ Yes (if private) |
+| `PAT_TOKEN` | GitHub Personal Access Token | ✅ Yes (if private repo) |
 
-### 3. For Private Repositories
+**To create a PAT:**
+1. Go to https://github.com/settings/tokens
+2. Click "Generate new token" → "Generate new token (classic)"
+3. Check scope: `repo` (Full control of private repositories)
+4. Copy the token and add it as `PAT_TOKEN` secret
 
-1. Create a PAT: https://github.com/settings/tokens → Generate new token (classic)
-   - Scopes: Check `repo`
-2. Add as `PAT_TOKEN` secret (see step 2)
+### 2. Enable Notifications
 
-### 4. Enable Notifications
+1. **Watch the repo**: Click **Watch** button → Select **All Activity**
+2. **Enable email**: https://github.com/settings/notifications → Check "Email" under Watching
 
-1. Watch the repo: Click **Watch** button → Select **All Activity**
-2. Enable email: https://github.com/settings/notifications → Check "Email" under Watching
-
-### 5. Run Locally (Optional)
+### 3. Run Locally (Optional)
 
 ```bash
-# Use .env file or set environment variables
-python main.py
+# Setup
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Run with arguments
+python main.py --domains "example.com,test.com" --threshold 30
+
+# Or use environment variables
+MONITOR_DOMAINS="example.com,test.com" python main.py
 ```
+
+## Configuration
+
+### Via Command-Line Arguments (Local)
+
+```bash
+python main.py --domains "example.com,test.com" --threshold 30
+```
+
+### Via Environment Variables (GitHub Actions)
+
+The workflow passes GitHub Secrets as command-line arguments automatically. You only need to set these secrets:
+- `MONITOR_DOMAINS` (required)
+- `CERT_EXPIRATION_THRESHOLD_DAYS` (optional, default: 30)
+- `PAT_TOKEN` (required for private repos)
+
+### Via .env File (Local Development Only)
+
+Create a `.env` file for local development:
+```env
+MONITOR_DOMAINS=example.com,test.com
+CERT_EXPIRATION_THRESHOLD_DAYS=30
+```
+
+**Priority**: Command-line args > Environment variables > .env file
 
 ## How It Works
 
@@ -64,26 +88,6 @@ If below threshold → Create GitHub Issue
 GitHub sends you email notification
 ```
 
-## Configuration
-
-### Via GitHub Secrets (Recommended for GHA)
-
-Set these as GitHub Secrets:
-- `MONITOR_DOMAINS=example.com,test.com`
-- `ALERT_EMAILS=your@email.com`
-- `CERT_EXPIRATION_THRESHOLD_DAYS=30`
-
-### Via .env File (Local Development)
-
-```env
-MONITOR_DOMAINS=example.com,test.com
-CERT_EXPIRATION_THRESHOLD_DAYS=30
-ALERT_EMAILS=your@email.com
-DEBUG=false
-```
-
-**Priority**: Environment variables override `.env` file settings.
-
 ## Manual Trigger
 
 Run the workflow manually:
@@ -95,9 +99,14 @@ Run the workflow manually:
 
 | Issue | Solution |
 |-------|----------|
-| "Repository not found" in GHA | Add `PAT_TOKEN` secret (private repos only) |
-| No email notifications | Watch the repo and enable email in https://github.com/settings/notifications |
+| "Repository not found" in GHA | Add `PAT_TOKEN` secret in Settings → Secrets and variables → Actions |
+| No email notifications | Make sure you're **watching** the repo and have email enabled |
 | Workflow not running | Check Actions are enabled in Settings → Actions → General |
+| Missing domains error | Add `MONITOR_DOMAINS` secret in GitHub Actions secrets |
+
+## License
+
+MIT
 | GitHub Issues not created | Check `.env` or GitHub Secrets for `MONITOR_DOMAINS` |
 
 ## Environment Variables
