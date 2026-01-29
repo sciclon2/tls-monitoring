@@ -13,14 +13,16 @@ Automated TLS/SSL certificate expiration monitoring via GitHub Actions. Checks c
 
 ## Quick Start
 
-### 1. Create GitHub Secrets
+### 1. Create GitHub Secrets (Optional)
 
 Go to your repository **Settings → Secrets and variables → Actions** and add:
 
 | Secret | Value | Required |
 |--------|-------|----------|
-| `MONITOR_DOMAINS` | Comma-separated domains (e.g., `example.com,test.com`) | ✅ Yes |
+| `MONITOR_DOMAINS` | Comma-separated domains (e.g., `example.com,test.com`) | ❌ No (uses `.env` by default) |
 | `PAT_TOKEN` | GitHub Personal Access Token | ✅ Yes (if private repo) |
+
+**Note:** If you don't set `MONITOR_DOMAINS` secret, the workflow will use domains from the `.env` file.
 
 **To create a PAT:**
 1. Go to https://github.com/settings/tokens
@@ -87,7 +89,7 @@ If `--domains` is empty or not provided, it falls back to environment variables 
 The workflow automatically:
 1. Tries to use `MONITOR_DOMAINS` secret (if set)
 2. Falls back to `.env` file (if secret is empty)
-3. Uses threshold: **5000 days** (hardcoded in workflow)
+3. Uses threshold from `.env` (default: 30 days)
 4. Requires `PAT_TOKEN` secret (for private repos)
 
 Example GitHub Secret with runbooks:
@@ -141,11 +143,7 @@ Run the workflow manually:
 | "Repository not found" in GHA | Add `PAT_TOKEN` secret in Settings → Secrets and variables → Actions |
 | No email notifications | Make sure you're **watching** the repo and have email enabled |
 | Workflow not running | Check Actions are enabled in Settings → Actions → General |
-| Missing domains error | Add `MONITOR_DOMAINS` secret in GitHub Actions secrets |
-
-## License
-
-MIT
+| Missing domains error | Add `MONITOR_DOMAINS` to `.env` or GitHub Actions secrets |
 | GitHub Issues not created | Check `.env` or GitHub Secrets for `MONITOR_DOMAINS` |
 
 ## Environment Variables
@@ -153,7 +151,9 @@ MIT
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `MONITOR_DOMAINS` | (required) | Domains to monitor (comma-separated) |
+| `CERT_EXPIRATION_THRESHOLD_DAYS` | 30 | Certificate expiry threshold in days |
 | `DEBUG` | false | Enable debug output |
+
 ## License
 
 MIT
