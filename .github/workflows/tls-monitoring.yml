@@ -38,7 +38,7 @@ jobs:
       
       - name: Run TLS monitoring script
         id: monitor
-        run: python main.py --threshold 5000
+        run: python main.py
         continue-on-error: true
       
       - name: Extract alerts and create issues
