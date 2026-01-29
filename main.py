@@ -31,8 +31,8 @@ def load_config(domains=None, threshold=None):
     env_file = script_dir / ".env"
     load_dotenv(dotenv_path=str(env_file), override=False)
     
-    # Use command-line args if provided, otherwise fall back to env vars
-    domains_str = domains or os.getenv("MONITOR_DOMAINS", "")
+    # Use command-line args if provided and not empty, otherwise fall back to env vars
+    domains_str = (domains and domains.strip()) or os.getenv("MONITOR_DOMAINS", "")
     threshold_days = threshold or int(os.getenv("CERT_EXPIRATION_THRESHOLD_DAYS", "30"))
     debug = os.getenv("DEBUG", "false").lower() == "true"
     
