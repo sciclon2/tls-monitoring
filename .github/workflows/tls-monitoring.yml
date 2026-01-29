@@ -38,14 +38,7 @@ jobs:
       
       - name: Run TLS monitoring script
         id: monitor
-        run: |
-          # Use secret if provided, otherwise use .env file
-          DOMAINS="${{ secrets.MONITOR_DOMAINS }}"
-          if [ -z "$DOMAINS" ]; then
-            python main.py --threshold 5000
-          else
-            python main.py --domains "$DOMAINS" --threshold 5000
-          fi
+        run: python main.py --threshold 5000
         continue-on-error: true
       
       - name: Extract alerts and create issues
