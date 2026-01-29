@@ -330,7 +330,8 @@ def main():
         cert_info = get_certificate_expiry(domain, runbook_url)
         
         # Skip domains with DNS resolution errors
-        if cert_info["status"] == "ERROR" and "nodename nor servname" in cert_info.get("error", ""):
+        error_msg = cert_info.get("error", "")
+        if cert_info["status"] == "ERROR" and ("nodename nor servname" in error_msg or "No address associated with hostname" in error_msg):
             print(f"⏭️  SKIPPED (DNS resolution failed)")
             skipped_domains.append(domain)
             continue
