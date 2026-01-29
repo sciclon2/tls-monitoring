@@ -2,7 +2,6 @@
 """
 TLS Certificate Monitoring via GitHub Actions
 Checks certificate expiration dates and sends alerts via GitHub Issues
-No New Relic required!
 """
 
 import os

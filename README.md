@@ -20,7 +20,6 @@ Go to your repository **Settings → Secrets and variables → Actions** and add
 | Secret | Value | Required |
 |--------|-------|----------|
 | `MONITOR_DOMAINS` | Comma-separated domains (e.g., `example.com,test.com`) | ✅ Yes |
-| `CERT_EXPIRATION_THRESHOLD_DAYS` | Days before expiration to alert (default: 30) | ❌ Optional |
 | `PAT_TOKEN` | GitHub Personal Access Token | ✅ Yes (if private repo) |
 
 **To create a PAT:**
@@ -57,12 +56,17 @@ MONITOR_DOMAINS="example.com,test.com" python main.py
 python main.py --domains "example.com,test.com" --threshold 30
 ```
 
-### Via Environment Variables (GitHub Actions)
+### Via GitHub Actions
 
-The workflow passes GitHub Secrets as command-line arguments automatically. You only need to set these secrets:
-- `MONITOR_DOMAINS` (required)
-- `CERT_EXPIRATION_THRESHOLD_DAYS` (optional, default: 30)
-- `PAT_TOKEN` (required for private repos)
+The workflow automatically uses:
+- `MONITOR_DOMAINS` from GitHub Secrets (required)
+- Threshold: **5000 days** (hardcoded in workflow)
+- `PAT_TOKEN` from GitHub Secrets (required for private repos)
+
+To use different thresholds locally, pass `--threshold` argument:
+```bash
+python main.py --domains "example.com" --threshold 30
+```
 
 ### Via .env File (Local Development Only)
 
