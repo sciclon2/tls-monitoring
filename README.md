@@ -33,7 +33,7 @@ Go to your repository **Settings → Secrets and variables → Actions** and add
 1. **Watch the repo**: Click **Watch** button → Select **All Activity**
 2. **Enable email**: https://github.com/settings/notifications → Check "Email" under Watching
 
-### 3. Run Locally (Optional)
+### Run Locally (Optional)
 
 ```bash
 # Setup
@@ -46,26 +46,44 @@ python main.py --domains "example.com,test.com" --threshold 30
 
 # Or use environment variables
 MONITOR_DOMAINS="example.com,test.com" python main.py
+
+# Include runbook URLs (only shown in GitHub Issues, not console)
+python main.py --domains "example.com:https://runbook.com/fix-cert,test.com" --threshold 30
 ```
 
 ## Configuration
 
+### Domain Format with Runbook URLs
+
+You can optionally include runbook URLs with domains. The runbook URL is only shown in GitHub Issues (private), not in console output:
+
+```
+domain1,domain2:https://runbook.company.com/certs,domain3:https://wiki.company.com/ssl
+```
+
+Format: `domain:runbook_url,domain,domain:runbook_url`
+
 ### Via Command-Line Arguments (Local)
 
 ```bash
-python main.py --domains "example.com,test.com" --threshold 30
+python main.py --domains "example.com,test.com:https://runbook.com/fix" --threshold 30
 ```
 
 ### Via GitHub Actions
 
 The workflow automatically uses:
-- `MONITOR_DOMAINS` from GitHub Secrets (required)
+- `MONITOR_DOMAINS` from GitHub Secrets (required, supports runbook URLs)
 - Threshold: **5000 days** (hardcoded in workflow)
 - `PAT_TOKEN` from GitHub Secrets (required for private repos)
 
+Example GitHub Secret with runbooks:
+```
+example.com:https://internal.runbook.io/fix-ssl,test.com
+```
+
 To use different thresholds locally, pass `--threshold` argument:
 ```bash
-python main.py --domains "example.com" --threshold 30
+python main.py --domains "example.com:https://runbook.com/fix" --threshold 30
 ```
 
 ### Via .env File (Local Development Only)

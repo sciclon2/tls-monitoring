@@ -66,6 +66,11 @@ jobs:
                 body += `**Days Remaining:** ${alert.days_remaining}\n\n`;
               }
               
+              // Include runbook URL if available (only in alerts, not in console output for privacy)
+              if (alert.runbook_url) {
+                body += `**Runbook:** [View Instructions](${alert.runbook_url})\n\n`;
+              }
+              
               body += `**Details:**\n`;
               body += `- Repository: [${context.repo.repo}](${context.server_url}/${context.repo.owner}/${context.repo.repo})\n`;
               body += `- Triggered: ${new Date().toISOString()}\n`;

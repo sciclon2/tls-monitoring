@@ -50,20 +50,43 @@ def validate_config(config):
 
 
 def parse_domains(domains_str):
-    """Parse domain list"""
-    return [d.strip() for d in domains_str.split(",") if d.strip()]
+    """Parse domain list with optional runbook URLs
+    
+    Format: domain1,domain2:runbook_url,domain3:runbook_url
+    Returns: list of tuples (domain, runbook_url or None)
+    """
+    domains = []
+    for item in domains_str.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        
+        if ":" in item:
+            domain, runbook = item.split(":", 1)
+            domains.append((domain.strip(), runbook.strip()))
+        else:
+            domains.append((item, None))
+    
+    return domains
 
 
 # ============================================================================
 # CERTIFICATE CHECKING
 # ============================================================================
 
-def get_certificate_expiry(domain, port=443, timeout=10):
+def get_certificate_expiry(domain, runbook_url=None, port=443, timeout=10):
     """Get certificate expiry date for a domain
+    
+    Args:
+        domain: Domain name to check
+        runbook_url: Optional runbook URL for remediation (only included in alerts)
+        port: SSL port (default: 443)
+        timeout: Connection timeout in seconds (default: 10)
     
     Returns:
         {
             "domain": "example.com",
+            "runbook_url": "https://..." or None,
             "expires_at": datetime object,
             "days_remaining": int,
             "status": "OK" | "EXPIRING" | "ERROR",
@@ -97,6 +120,7 @@ def get_certificate_expiry(domain, port=443, timeout=10):
                 
                 return {
                     "domain": domain,
+                    "runbook_url": runbook_url,
                     "expires_at": expires_at,
                     "days_remaining": days_remaining,
                     "status": status,
@@ -121,6 +145,7 @@ def get_certificate_expiry(domain, port=443, timeout=10):
                         if not cert_der:
                             return {
                                 "domain": domain,
+                                "runbook_url": runbook_url,
                                 "expires_at": None,
                                 "days_remaining": None,
                                 "status": "ERROR",
@@ -156,6 +181,7 @@ def get_certificate_expiry(domain, port=443, timeout=10):
                                 
                                 return {
                                     "domain": domain,
+                                    "runbook_url": runbook_url,
                                     "expires_at": expires_at,
                                     "days_remaining": days_remaining,
                                     "status": status,
@@ -164,6 +190,8 @@ def get_certificate_expiry(domain, port=443, timeout=10):
                             else:
                                 return {
                                     "domain": domain,
+                                    "runbook_url": runbook_url,
+                                    "runbook_url": runbook_url,
                                     "expires_at": None,
                                     "days_remaining": None,
                                     "status": "ERROR",
@@ -172,6 +200,7 @@ def get_certificate_expiry(domain, port=443, timeout=10):
                         except Exception as openssl_e:
                             return {
                                 "domain": domain,
+                                "runbook_url": runbook_url,
                                 "expires_at": None,
                                 "days_remaining": None,
                                 "status": "ERROR",
@@ -180,6 +209,7 @@ def get_certificate_expiry(domain, port=443, timeout=10):
             except Exception as fallback_e:
                 return {
                     "domain": domain,
+                    "runbook_url": runbook_url,
                     "expires_at": None,
                     "days_remaining": None,
                     "status": "ERROR",
@@ -188,6 +218,7 @@ def get_certificate_expiry(domain, port=443, timeout=10):
         else:
             return {
                 "domain": domain,
+                "runbook_url": runbook_url,
                 "expires_at": None,
                 "days_remaining": None,
                 "status": "ERROR",
@@ -197,6 +228,7 @@ def get_certificate_expiry(domain, port=443, timeout=10):
     except Exception as e:
         return {
             "domain": domain,
+            "runbook_url": runbook_url,
             "expires_at": None,
             "days_remaining": None,
             "status": "ERROR",
@@ -290,9 +322,11 @@ def main():
     
     # Check each domain
     results = []
-    for domain in domains:
+    for domain_entry in domains:
+        # domain_entry is either (domain, runbook_url) or (domain, None)
+        domain, runbook_url = domain_entry
         print(f"Checking {domain}...", end=" ")
-        cert_info = get_certificate_expiry(domain)
+        cert_info = get_certificate_expiry(domain, runbook_url)
         results.append(cert_info)
         
         if cert_info["status"] == "ERROR":
@@ -332,6 +366,7 @@ def main():
         if alerts:
             alerts_json = json.dumps([{
                 "domain": alert["domain"],
+                "runbook_url": alert["runbook_url"],
                 "status": alert["status"],
                 "days_remaining": alert["days_remaining"],
                 "expires_at": alert["expires_at"].isoformat() if alert["expires_at"] else None,
