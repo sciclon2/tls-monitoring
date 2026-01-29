@@ -1,0 +1,140 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Run unit tests
+        run: |
+          python -m unittest test_tls_monitoring -v
+        continue-on-error: false
+      
+      - name: Run code style check
+        run: |
+          python -m pip install flake8
+          flake8 main.py test_tls_monitoring.py --max-line-length=120 --ignore=E203,W503
+        continue-on-error: true
+      
+      - name: Test domain parsing
+        run: |
+          python -c "
+          from main import parse_domains
+          
+          # Test simple domains
+          result = parse_domains('example.com,test.com')
+          assert len(result) == 2
+          assert result[0] == ('example.com', None)
+          print('✓ Simple domain parsing works')
+          
+          # Test domains with runbooks
+          result = parse_domains('example.com:https://runbook.com/fix,test.com')
+          assert result[0][1] == 'https://runbook.com/fix'
+          print('✓ Domain parsing with runbook URLs works')
+          "
+      
+      - name: Test configuration loading
+        run: |
+          python -c "
+          from main import load_config, validate_config
+          
+          config = load_config(domains='example.com', threshold=45)
+          assert config['domains_str'] == 'example.com'
+          assert config['threshold_days'] == 45
+          
+          validate_config(config)
+          print('✓ Configuration loading and validation works')
+          "
+      
+      - name: Test threshold checking
+        run: |
+          python -c "
+          from main import check_threshold
+          
+          # Test below threshold
+          cert_info = {'status': 'OK', 'days_remaining': 15, 'error': None}
+          assert check_threshold(cert_info, 30) == True
+          
+          # Test above threshold
+          cert_info = {'status': 'OK', 'days_remaining': 60, 'error': None}
+          assert check_threshold(cert_info, 30) == False
+          
+          # Test error status
+          cert_info = {'status': 'ERROR', 'days_remaining': 365, 'error': 'Failed'}
+          assert check_threshold(cert_info, 30) == True
+          
+          print('✓ Threshold checking logic works')
+          "
+      
+      - name: Lint check
+        run: |
+          python -m pip install pylint
+          pylint main.py --disable=C0111,C0103,R0913,W0212 --exit-zero
+        continue-on-error: true
+
+  integration-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Test certificate check (integration)
+        run: |
+          python -c "
+          from main import get_certificate_expiry
+          import json
+          
+          # Test real certificate check (example.com)
+          result = get_certificate_expiry('example.com')
+          
+          assert 'domain' in result
+          assert 'expires_at' in result
+          assert 'days_remaining' in result
+          assert 'status' in result
+          assert result['domain'] == 'example.com'
+          
+          print(f'✓ Certificate check for example.com successful')
+          print(f'  Status: {result[\"status\"]}')
+          print(f'  Days remaining: {result[\"days_remaining\"]}')
+          "
+      
+      - name: Test full workflow simulation
+        run: |
+          # Simulate the full monitoring workflow
+          python main.py --domains "example.com" --threshold 5000
+        continue-on-error: false
