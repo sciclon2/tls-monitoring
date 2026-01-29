@@ -322,11 +322,19 @@ def main():
     
     # Check each domain
     results = []
+    skipped_domains = []
     for domain_entry in domains:
         # domain_entry is either (domain, runbook_url) or (domain, None)
         domain, runbook_url = domain_entry
         print(f"Checking {domain}...", end=" ")
         cert_info = get_certificate_expiry(domain, runbook_url)
+        
+        # Skip domains with DNS resolution errors
+        if cert_info["status"] == "ERROR" and "nodename nor servname" in cert_info.get("error", ""):
+            print(f"⏭️  SKIPPED (DNS resolution failed)")
+            skipped_domains.append(domain)
+            continue
+        
         results.append(cert_info)
         
         if cert_info["status"] == "ERROR":
@@ -345,11 +353,15 @@ def main():
     
     if not alerts:
         print("✓ All certificates are healthy!")
+        if skipped_domains:
+            print(f"⏭️  {len(skipped_domains)} domain(s) skipped due to DNS issues")
         print("="*60)
         return 0
     
     # Send alerts
     print(f"🚨 {len(alerts)} certificate(s) need attention!")
+    if skipped_domains:
+        print(f"⏭️  {len(skipped_domains)} domain(s) skipped due to DNS issues")
     print()
     
     alert_data = {
