@@ -33,7 +33,7 @@ Go to your repository **Settings → Secrets and variables → Actions** and add
 1. **Watch the repo**: Click **Watch** button → Select **All Activity**
 2. **Enable email**: https://github.com/settings/notifications → Check "Email" under Watching
 
-### Run Locally (Optional)
+### 3. Run Locally (Optional)
 
 ```bash
 # Setup
