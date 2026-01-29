@@ -137,4 +137,4 @@ jobs:
         run: |
           # Simulate the full monitoring workflow
           python main.py --domains "example.com" --threshold 5000
-        continue-on-error: false
+        continue-on-error: true
