@@ -72,9 +72,9 @@ jobs:
               }
               
               body += `**Details:**\n`;
-              body += `- Repository: [${context.repo.repo}](${context.server_url}/${context.repo.owner}/${context.repo.repo})\n`;
-              body += `- Triggered: ${new Date().toISOString()}\n`;
-              body += `- Workflow: [View Logs](${context.server_url}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n\n`;
+              body += `- **Repository:** [${context.repo.owner}/${context.repo.repo}](${context.server_url}/${context.repo.owner}/${context.repo.repo})\n`;
+              body += `- **Triggered:** ${new Date().toISOString()}\n`;
+              body += `- **Workflow:** [View Logs](${context.server_url}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n\n`;
               body += `Take action to renew or fix the certificate.`;
               
               await github.rest.issues.create({
