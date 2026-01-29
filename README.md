@@ -53,6 +53,17 @@ python main.py --domains "example.com:https://runbook.com/fix-cert,test.com" --t
 
 ## Configuration
 
+### Configuration Priority Order
+
+The script loads configuration in this order (highest to lowest priority):
+
+1. **Command-line arguments** (e.g., `--domains "example.com" --threshold 30`)
+2. **GitHub Secrets** (when running in GitHub Actions)
+3. **Environment variables** (set locally or in `.env` file)
+4. **Default values** (threshold: 30 days)
+
+**Example**: If `.env` has `MONITOR_DOMAINS=example.com,test.com` and you run `python main.py --domains "other.com"`, it uses `other.com`.
+
 ### Domain Format with Runbook URLs
 
 You can optionally include runbook URLs with domains. The runbook URL is only shown in GitHub Issues (private), not in console output:
@@ -69,21 +80,27 @@ Format: `domain:runbook_url,domain,domain:runbook_url`
 python main.py --domains "example.com,test.com:https://runbook.com/fix" --threshold 30
 ```
 
+If `--domains` is empty or not provided, it falls back to environment variables or `.env` file.
+
 ### Via GitHub Actions
 
-The workflow automatically uses:
-- `MONITOR_DOMAINS` from GitHub Secrets (required, supports runbook URLs)
-- Threshold: **5000 days** (hardcoded in workflow)
-- `PAT_TOKEN` from GitHub Secrets (required for private repos)
+The workflow automatically:
+1. Tries to use `MONITOR_DOMAINS` secret (if set)
+2. Falls back to `.env` file (if secret is empty)
+3. Uses threshold: **5000 days** (hardcoded in workflow)
+4. Requires `PAT_TOKEN` secret (for private repos)
 
 Example GitHub Secret with runbooks:
 ```
 example.com:https://internal.runbook.io/fix-ssl,test.com
 ```
 
-To use different thresholds locally, pass `--threshold` argument:
+### Via Environment Variables (Local)
+
 ```bash
-python main.py --domains "example.com:https://runbook.com/fix" --threshold 30
+export MONITOR_DOMAINS="example.com,test.com"
+export CERT_EXPIRATION_THRESHOLD_DAYS=30
+python main.py
 ```
 
 ### Via .env File (Local Development Only)
@@ -94,7 +111,7 @@ MONITOR_DOMAINS=example.com,test.com
 CERT_EXPIRATION_THRESHOLD_DAYS=30
 ```
 
-**Priority**: Command-line args > Environment variables > .env file
+The `.env` file is used as a fallback if command-line arguments and environment variables are not provided.
 
 ## How It Works
 
